@@ -1,0 +1,12 @@
+{
+  "name": "com.noya.resgen",
+  "version": "1.0.0",
+  "displayName": "Resgen",
+  "description": "A Resource Generator library for incremental games.",
+  "unity": "6000.0",
+  "licensesUrl": "https://raw.githubusercontent.com/ZykeDev/Resgen/refs/heads/main/LICENSE",
+  "author": {
+    "name": "Marco Vincenzi",
+    "url": "https://github.com/ZykeDev"
+  }
+}
