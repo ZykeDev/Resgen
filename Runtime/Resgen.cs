@@ -75,7 +75,7 @@ namespace Noya.Resgen
 		}
 
 		/// <inheritdoc cref="RemoveGenerator(GeneratorScriptableObject{TResource, TValue}, TValue)"/>
-		public void RemoveGenerator(GeneratorScriptableObject<TResource, TValue> generatorData) => RemoveGenerator(generatorData, math.One);
+		public bool RemoveGenerator(GeneratorScriptableObject<TResource, TValue> generatorData) => RemoveGenerator(generatorData, math.One);
 
 		
 		/// <summary>
