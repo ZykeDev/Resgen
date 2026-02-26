@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using JetBrains.Annotations;
-using UnityEngine;
 
 namespace Noya.Resgen
 {
+	// ReSharper disable once InvalidXmlDocComment
 	/// <summary>
 	/// Generates a specific resource based on a list of generators.
 	/// </summary>
@@ -18,20 +19,44 @@ namespace Noya.Resgen
 		where TValue : struct
 	{
 		private readonly IResgenMath<TValue> math;
-		private readonly Dictionary<GeneratorScriptableObject<TResource, TValue>, GeneratorInstance<TResource, TValue>> activeGenerators = new();
+		private readonly Dictionary<GeneratorData<TResource, TValue>, GeneratorInstance<TResource, TValue>> activeGenerators = new();
 		private readonly Dictionary<TResource, TValue> cachedGeneration = new();
 		private readonly HashSet<TResource> dirtyResources = new();
 		
-
+		
+		/// <summary>
+		/// Creates a new instance of <see cref="Resgen{TResource,TValue}"/> with a custom <see cref="IResgenMath{TValue}"/> implementation.
+		/// </summary>
 		public Resgen(IResgenMath<TValue> math)
 		{
 			this.math = math;
+		}
+
+		/// <summary>
+		/// Creates a new instance of <see cref="Resgen{TResource,TValue}"/> with a default <see cref="IResgenMath{TValue}"/> implementation.
+		/// </summary>
+		/// <remarks>Default Math types available are <see cref="float"/> and <see cref="int"/>. For other types, pass a custom implementation of <see cref="IResgenMath{TValue}"/></remarks>
+		public Resgen()
+		{
+			if (typeof(TValue) == typeof(float))
+			{
+				math = new FloatMath() as IResgenMath<TValue>;
+				return;
+			}
+			else if (typeof(TValue) == typeof(int))
+			{
+				math = new IntMath() as IResgenMath<TValue>;
+				return;
+			}
+			
+			throw new ArgumentException($"Unsupported math type {typeof(TValue)} (default is float). " +
+			                              $"If you want to use a custom type, please provide an {nameof(IResgenMath<TValue>)} implementation for it.");
 		}
 		
 		/// <summary>
 		/// Adds a generator to the list of active generators.
 		/// </summary>
-		public void AddGenerator(GeneratorScriptableObject<TResource, TValue> generatorData, TValue count)
+		public void AddGenerator(GeneratorData<TResource, TValue> generatorData, TValue count)
 		{
 			// If the generator already exists, increment its count
 			if (activeGenerators.TryGetValue(generatorData, out var generator))
@@ -47,14 +72,14 @@ namespace Noya.Resgen
 			dirtyResources.Add(generatorData.Resource);
 		}
 		
-		/// <inheritdoc cref="AddGenerator(GeneratorScriptableObject{TResource, TValue}, TValue)"/>
-		public void AddGenerator(GeneratorScriptableObject<TResource, TValue> generatorData) => AddGenerator(generatorData, math.One);
+		/// <inheritdoc cref="AddGenerator(GeneratorData{TResource,TValue}, TValue)"/>
+		public void AddGenerator(GeneratorData<TResource, TValue> generatorData) => AddGenerator(generatorData, math.One);
 		
 		/// <summary>
 		/// Removes a number of generator from the list of active generators.
 		/// </summary>
 		/// <returns>true if item is successfully removed; otherwise.</returns>
-		public bool RemoveGenerator(GeneratorScriptableObject<TResource, TValue> generatorData, TValue generatorsToRemove)
+		public bool RemoveGenerator(GeneratorData<TResource, TValue> generatorData, TValue generatorsToRemove)
 		{
 			if (!activeGenerators.TryGetValue(generatorData, out var generator))
 			{
@@ -73,10 +98,9 @@ namespace Noya.Resgen
 
 			return true;
 		}
-
-		/// <inheritdoc cref="RemoveGenerator(GeneratorScriptableObject{TResource, TValue}, TValue)"/>
-		public bool RemoveGenerator(GeneratorScriptableObject<TResource, TValue> generatorData) => RemoveGenerator(generatorData, math.One);
-
+		
+		/// <inheritdoc cref="RemoveGenerator(GeneratorData{TResource,TValue}, TValue)"/>
+		public bool RemoveGenerator(GeneratorData<TResource, TValue> generatorData) => RemoveGenerator(generatorData, math.One);
 		
 		/// <summary>
 		/// Generates a resource based on the active generators.
@@ -163,69 +187,15 @@ namespace Noya.Resgen
 			
 			return result;
 		}
-	}
-	
-	public interface IResgenMath<TValue> : IEqualityComparer<TValue>, IComparer<TValue>
-	{
-		TValue Zero { get; }
-		TValue One { get; }
-		TValue Add(TValue a, TValue b);
-		TValue Subtract(TValue a, TValue b);
-		TValue Multiply(TValue a, TValue b);
-		TValue Divide(TValue a, TValue b);
-		TValue Power(TValue a, float b);
-		TValue ShiftMagnitude(ref TValue a, int b);
-		// TODO warn the user about Pow capping at ^float.MaxValue
-		public float AsFloat(TValue a);
-		public int AsInt(TValue a);
-	}
 
-	public enum GeneratorType
-	{
 		/// <summary>
-		/// Adds a flat amount of resources.
+		/// Returns a readonly list of current generators of a specific resource.
 		/// </summary>
-		Flat,
-		/// <summary>
-		/// Multiplies the amount of resources by a value.
-		/// Multiplier values are summed together before being applied (base * (mult1 + mult2 + ...).
-		/// </summary>
-		LinearMultiplier,
-		/// <summary>
-		/// Multiplies the amount of resources by a value.
-		/// Multiplier values are multiplied together before being applied (base * (mult1 * mult2 * ...)).
-		/// </summary>
-		GeometricMultiplier,
-		/// <summary>
-		/// Raises the amount of resources to a power.
-		/// </summary>
-		Exponential,
-		/// <summary>
-		/// Increases (or decreases) the exponent of the base value. TValues will always be treated as <see cref="int"/>s.
-		/// </summary>
-		Magnitude
-	}
-
-	public abstract class GeneratorScriptableObject<TResource, TValue> : ScriptableObject where TResource : struct, Enum
-	{
-		public GeneratorType GeneratorType;
-		public TResource Resource;
-		public TValue Value;
-	}
-	
-	internal class GeneratorInstance<TResource, TValue> where TResource : struct, Enum
-	{
-		public GeneratorScriptableObject<TResource, TValue> Data { get; }
-		public TValue Count { get; set; }
-		public TResource Resource => Data.Resource;
-		public TValue Value => Data.Value;
-		public GeneratorType GeneratorType => Data.GeneratorType;
-		
-
-		internal GeneratorInstance(GeneratorScriptableObject<TResource, TValue> data, TValue initialCount)
+		public IReadOnlyList<GeneratorData<TResource, TValue>> GetGenerators(TResource resource)
 		{
-			Data = data;
-			Count = initialCount;
+			return activeGenerators.SelectMany(kvp => kvp.Value.Resource.Equals(resource) 
+				? new[] { kvp.Value.Data }
+				: Enumerable.Empty<GeneratorData<TResource, TValue>>()).ToList();
 		}
 	}
 }

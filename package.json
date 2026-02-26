@@ -1,6 +1,6 @@
 {
   "name": "com.noya.resgen",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "displayName": "Resgen",
   "description": "A Resource Generator library for incremental games.",
   "unity": "6000.0",
