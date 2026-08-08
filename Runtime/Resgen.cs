@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using JetBrains.Annotations;
+using UnityEngine;
 
 namespace Noya.Resgen
 {
@@ -52,7 +53,7 @@ namespace Noya.Resgen
 			throw new ArgumentException($"Unsupported math type {typeof(TValue)} (default is float). " +
 			                              $"If you want to use a custom type, please provide an {nameof(IResgenMath<TValue>)} implementation for it.");
 		}
-		
+
 		/// <summary>
 		/// Adds a generator to the list of active generators.
 		/// </summary>
@@ -81,6 +82,11 @@ namespace Noya.Resgen
 		/// <returns>true if item is successfully removed; otherwise.</returns>
 		public bool RemoveGenerator(GeneratorData<TResource, TValue> generatorData, TValue generatorsToRemove)
 		{
+			if (activeGenerators == null || !generatorData)
+			{
+				return false;
+			}
+			
 			if (!activeGenerators.TryGetValue(generatorData, out var generator))
 			{
 				return false;
@@ -165,8 +171,6 @@ namespace Noya.Resgen
 					case GeneratorType.Magnitude:
 						mag += math.AsInt(math.Multiply(generator.Value, generator.Count));
 						break;
-					
-					default: throw new ArgumentOutOfRangeException();
 				}
 			}
 			
@@ -181,11 +185,40 @@ namespace Noya.Resgen
 			// Apply the magnitudes
 			result = math.ShiftMagnitude(ref result, mag);
 			
+			// Apply division debuffs
+			// Resource Division should always be done as the last operation
+			// TODO optimize this by not looping through the list again?
+			foreach (var generatorKvp in activeGenerators)
+			{
+				var generator = generatorKvp.Value;
+				if (!generator.Resource.Equals(resource))
+					continue;
+
+				switch (generator.GeneratorType)
+				{
+					case GeneratorType.LinearDivider:
+						TValue divisor = math.Multiply(generator.Value, generator.Count);
+						// If dividing would drop the multiplier down to 0, cap it to 1
+						mult = math.Compare(divisor, mult) < 0 ? math.Subtract(mult, divisor) : math.One;
+						break;
+				}
+			}
+			
 			// Update the cache and remove the dirty resource
 			cachedGeneration[resource] = result;
 			dirtyResources.Remove(resource);
 			
 			return result;
+		}
+
+		/// <summary>
+		/// Clears all interal collections.
+		/// </summary>
+		public void Clear()
+		{
+			activeGenerators.Clear();
+			cachedGeneration.Clear();
+			dirtyResources.Clear();
 		}
 
 		/// <summary>

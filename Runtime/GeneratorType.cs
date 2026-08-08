@@ -25,7 +25,11 @@ namespace Noya.Resgen
         /// <summary>
         /// Increases (or decreases) the exponent of the base value. TValues will always be treated as <see cref="int"/>s.
         /// </summary>
-        Magnitude
+        Magnitude,
+        /// <summary>
+        /// Divides the amount of resources by a value. Division is always done as the last operation.
+        /// </summary>
+        LinearDivider
     }
     
     public static class GeneratorExtensions
@@ -38,10 +42,11 @@ namespace Noya.Resgen
             return type switch
             {
                 GeneratorType.Flat => "+",
-                GeneratorType.LinearMultiplier => "*",
+                GeneratorType.LinearMultiplier => "x",
                 GeneratorType.GeometricMultiplier => "**",
                 GeneratorType.Exponential => "^",
                 GeneratorType.Magnitude => ">",
+                GeneratorType.LinearDivider => "/",
                 var _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
             };
         }
